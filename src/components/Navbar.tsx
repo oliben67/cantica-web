@@ -1,10 +1,12 @@
-import { BookOpen, Search } from "lucide-react";
+import { BookOpen, LogIn, LogOut, Network, Search, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 
 export function Navbar() {
   const [q, setQ] = useState("");
   const navigate = useNavigate();
+  const { user, isAdmin, logout } = useAuth();
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,9 +33,44 @@ export function Navbar() {
           </div>
         </form>
 
-        <nav className="ml-auto flex items-center gap-4 text-sm">
+        <nav className="ml-auto flex items-center gap-3 text-sm">
           <Link to="/" className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">Browse</Link>
           <Link to="/collections" className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">Collections</Link>
+
+          {isAdmin && (
+            <>
+              <Link to="/admin" className="flex items-center gap-1 text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300">
+                <ShieldCheck size={14} />
+                Admin
+              </Link>
+              <Link to="/admin/federation" className="flex items-center gap-1 text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300">
+                <Network size={14} />
+                Federation
+              </Link>
+            </>
+          )}
+
+          {user ? (
+            <div className="flex items-center gap-3">
+              <span className="text-zinc-500 dark:text-zinc-400 hidden sm:block">{user.username}</span>
+              <button
+                onClick={logout}
+                title="Sign out"
+                className="flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+              >
+                <LogOut size={15} />
+                <span className="hidden sm:block">Sign out</span>
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="flex items-center gap-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+            >
+              <LogIn size={15} />
+              Sign in
+            </Link>
+          )}
         </nav>
       </div>
     </header>
