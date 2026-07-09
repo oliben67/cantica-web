@@ -27,6 +27,21 @@ tasks:
     desc: Build the frontend for production (outputs to dist/)
     cmd: npm run build
 
+  # ── Type checking ─────────────────────────────────────────────────────────
+  typecheck:
+    desc: Run tsc --noEmit across the project references
+    cmd: npm run typecheck
+
+  # ── Testing ───────────────────────────────────────────────────────────────
+  test:
+    desc: Run the Vitest test suite
+    cmd: npm test
+
+  test:watch:
+    desc: Run Vitest in watch mode for quick iteration
+    interactive: true
+    cmd: npm run test:watch
+
   # ── Linting ───────────────────────────────────────────────────────────────
   lint:
     desc: Run ESLint over the source tree
@@ -37,17 +52,26 @@ tasks:
     cmd: npm run lint -- --fix
 
   # ── Combined workflows ────────────────────────────────────────────────────
-  check:
-    desc: Run all quality gates — lint, then build
+  fix:
+    desc: Auto-fix all ESLint issues
     cmds:
+      - task: lint:fix
+
+  check:
+    desc: Run all quality gates — typecheck, lint, test, then build
+    cmds:
+      - task: typecheck
       - task: lint
+      - task: test
       - task: build
 
   ci:
-    desc: Full CI pipeline — frozen install → lint → build
+    desc: Full CI pipeline — frozen install → typecheck → lint → test → build
     cmds:
       - task: install
+      - task: typecheck
       - task: lint
+      - task: test
       - task: build
 
   # ── Clean ─────────────────────────────────────────────────────────────────

@@ -15,6 +15,10 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // Node 22+'s native (opt-in) localStorage global shadows jsdom's window.localStorage
+    // in vitest's environment setup, since vitest only overrides globals that Node doesn't
+    // already define. Disabling the native one lets jsdom's implementation take over.
+    execArgv: ["--no-experimental-webstorage"],
   },
   server: {
     port: 5173,
