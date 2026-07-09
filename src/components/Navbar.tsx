@@ -1,7 +1,7 @@
 import { BookOpen, LogIn, LogOut, Network, Search, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-hooks";
 
 export function Navbar() {
   const [q, setQ] = useState("");

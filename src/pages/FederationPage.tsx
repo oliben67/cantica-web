@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { } from "react-router-dom";
-import { useAuth, useRequireAdmin } from "@/lib/auth";
+import { useAuth, useRequireAdmin } from "@/lib/auth-hooks";
 import {
   type Federation,
   type FederationMember,

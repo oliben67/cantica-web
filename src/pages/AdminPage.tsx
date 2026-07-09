@@ -3,7 +3,7 @@ import { Copy, Loader2, Mail, Plus, QrCode, ShieldOff, Trash2, UserCheck, UserX 
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth, useRequireAdmin } from "@/lib/auth";
+import { useAuth, useRequireAdmin } from "@/lib/auth-hooks";
 import {
   type AdminInvite,
   type AdminUser,

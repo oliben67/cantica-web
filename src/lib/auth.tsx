@@ -1,39 +1,16 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { AuthContext, type AuthUser } from "./auth-context";
 
 const TOKEN_KEY = "cantica_token";
-
-export interface AuthUser {
-  id: string;
-  username: string;
-  email: string;
-  roles: string[];
-  is_active: boolean;
-}
-
-interface AuthState {
-  user: AuthUser | null;
-  token: string | null;
-  isAdmin: boolean;
-  /** True while the initial /auth/me check is in flight — don't redirect yet. */
-  isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
-}
-
-const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !!localStorage.getItem(TOKEN_KEY));
 
   useEffect(() => {
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
+    if (!token) return;
     fetch("/v1/auth/me", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((u: AuthUser) => { setUser(u); setIsLoading(false); })
@@ -88,44 +65,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth(): AuthState {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
-  return ctx;
-}
-
-/**
- * Redirect to /login if the auth check is complete and no user is found.
- * Returns true while the check is still in flight (caller should render null/spinner).
- */
-export function useRequireAuth(): boolean {
-  const { user, isLoading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      navigate("/login", { replace: true });
-    }
-  }, [isLoading, user, navigate]);
-
-  return isLoading;
-}
-
-/**
- * Same as useRequireAuth but also requires the admin role.
- * Redirects non-admins to "/" (not /login).
- */
-export function useRequireAdmin(): boolean {
-  const { user, isAdmin, isLoading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (!user) { navigate("/login", { replace: true }); return; }
-    if (!isAdmin) navigate("/", { replace: true });
-  }, [isLoading, user, isAdmin, navigate]);
-
-  return isLoading;
 }

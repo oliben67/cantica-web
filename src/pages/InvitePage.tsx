@@ -2,7 +2,7 @@ import { BookOpen, CheckCircle2, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { acceptInvite, validateInviteToken } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-hooks";
 
 type Step = "validate" | "register" | "done";
 

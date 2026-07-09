@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
-import { AuthProvider, useAuth, useRequireAuth } from "@/lib/auth";
+import { AuthProvider } from "@/lib/auth";
+import { useAuth, useRequireAuth } from "@/lib/auth-hooks";
 import { AdminPage } from "@/pages/AdminPage";
 import { Browse } from "@/pages/Browse";
 import { CollectionDetail } from "@/pages/CollectionDetail";

@@ -1,7 +1,7 @@
 import { BookOpen, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-hooks";
 
 export function LoginPage() {
   const { login } = useAuth();
