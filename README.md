@@ -4,6 +4,11 @@ React SPA for the Cantica prompt registry — browse, search, fork, and manage A
 
 Built with **Vite + React + TypeScript + Tailwind CSS**.
 
+When the API runs with the security shim (`CANTICA_SECURITY_SHIM`), admins get
+security screens at `/admin/security` (users · activation · flags · directory
+mappings · API tokens), rendered from the shared
+[`@cantica/secure-ui`](../cantica-secure/ui/) library.
+
 ---
 
 ## Development
