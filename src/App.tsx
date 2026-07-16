@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { AuthProvider } from "@/lib/auth";
 import { useAuth, useRequireAuth } from "@/lib/auth-hooks";
-import { AdminPage } from "@/pages/AdminPage";
 import { Browse } from "@/pages/Browse";
 import { CollectionDetail } from "@/pages/CollectionDetail";
 import { Collections } from "@/pages/Collections";
@@ -30,7 +29,7 @@ function AuthenticatedLayout() {
         <Route path="/prompts/:namespace/:name" element={<PromptDetail />} />
         <Route path="/collections" element={<Collections />} />
         <Route path="/collections/:namespace/:name" element={<CollectionDetail />} />
-        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin" element={<Navigate to="/admin/security" replace />} />
         <Route path="/admin/federation" element={<FederationPage />} />
         <Route path="/admin/security" element={<SecurityAdminPage />} />
         <Route path="/:namespace" element={<NamespacePage />} />

@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-hooks";
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,7 @@ export function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await login(username, password);
+      await login(email, password);
       navigate("/", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -39,18 +39,18 @@ export function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label
-                htmlFor="username"
+                htmlFor="email"
                 className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
               >
-                Username
+                Email
               </label>
               <input
-                id="username"
-                type="text"
+                id="email"
+                type="email"
                 autoComplete="username"
                 required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
             </div>

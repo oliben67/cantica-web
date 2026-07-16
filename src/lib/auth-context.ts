@@ -14,7 +14,7 @@ export interface AuthState {
   isAdmin: boolean;
   /** True while the initial /auth/me check is in flight — don't redirect yet. */
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 

@@ -23,7 +23,29 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-// No token in localStorage → AuthProvider does NOT call fetch on mount.
+/** URL-routing fetch mock — the AuthProvider probes /v1/auth/me on mount, so
+ *  order-based mocks won't do. `me` is the principal (or null = 401). */
+function routeFetch(handlers: {
+  me?: unknown | null;
+  login?: { ok: boolean; body: unknown };
+}) {
+  return vi.fn((url: string, init?: RequestInit) => {
+    if (url === "/v1/auth/me") {
+      const p = handlers.me;
+      return Promise.resolve(p == null
+        ? { ok: false, status: 401, json: () => Promise.resolve({}) }
+        : { ok: true, status: 200, json: () => Promise.resolve(p) });
+    }
+    if (url === "/v1/auth/login") {
+      const l = handlers.login ?? { ok: false, body: "no handler" };
+      return Promise.resolve(l.ok
+        ? { ok: true, status: 200, json: () => Promise.resolve(l.body) }
+        : { ok: false, status: 401, text: () => Promise.resolve(String(l.body)) });
+    }
+    void init;
+    return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve("nope") });
+  });
+}
 
 afterEach(() => {
   localStorage.clear();
@@ -32,37 +54,37 @@ afterEach(() => {
 });
 
 describe("LoginPage", () => {
-  it("renders username, password fields and sign-in button", () => {
+  it("renders email, password fields and sign-in button", () => {
+    vi.stubGlobal("fetch", routeFetch({ me: null }));
     render(<Wrapper><LoginPage /></Wrapper>);
-    expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
   });
 
   it("navigates to / on successful login", async () => {
-    const loginResp = {
-      access_token: "jwt",
-      user: { id: "1", username: "alice", email: "", roles: ["user"], is_active: true },
-    };
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({
-      ok: true, status: 200, json: () => Promise.resolve(loginResp),
+    vi.stubGlobal("fetch", routeFetch({
+      me: { user_id: "1", email: "a@x.com", roles: ["user"], anonymous: false },
+      login: { ok: true, body: { access_token: "jwt" } },
     }));
 
     render(<Wrapper><LoginPage /></Wrapper>);
-    await userEvent.type(screen.getByLabelText(/username/i), "alice");
+    await userEvent.type(screen.getByLabelText(/email/i), "a@x.com");
     await userEvent.type(screen.getByLabelText(/password/i), "pass");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true }));
+    expect(localStorage.getItem("cantica_token")).toBe("jwt");
   });
 
   it("shows error message on failed login", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({
-      ok: false, status: 401, text: () => Promise.resolve("Invalid credentials"),
+    vi.stubGlobal("fetch", routeFetch({
+      me: null,
+      login: { ok: false, body: "Invalid credentials" },
     }));
 
     render(<Wrapper><LoginPage /></Wrapper>);
-    await userEvent.type(screen.getByLabelText(/username/i), "alice");
+    await userEvent.type(screen.getByLabelText(/email/i), "a@x.com");
     await userEvent.type(screen.getByLabelText(/password/i), "wrong");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
@@ -73,21 +95,22 @@ describe("LoginPage", () => {
   it("disables submit button while loading", async () => {
     let resolveLogin!: (v: unknown) => void;
     const pending = new Promise((res) => { resolveLogin = res; });
-    vi.stubGlobal("fetch", vi.fn().mockReturnValueOnce(pending));
+    vi.stubGlobal("fetch", vi.fn((url: string) => {
+      if (url === "/v1/auth/me") {
+        return Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({}) });
+      }
+      return pending; // /v1/auth/login hangs
+    }));
 
     render(<Wrapper><LoginPage /></Wrapper>);
-    await userEvent.type(screen.getByLabelText(/username/i), "alice");
+    await userEvent.type(screen.getByLabelText(/email/i), "a@x.com");
     await userEvent.type(screen.getByLabelText(/password/i), "pass");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     expect(screen.getByRole("button", { name: /sign in/i })).toBeDisabled();
 
-    // resolve to avoid dangling promise warning
     await act(async () => {
-      resolveLogin({
-        ok: true, status: 200,
-        json: () => Promise.resolve({ access_token: "jwt", user: { id: "1", username: "alice", email: "", roles: [], is_active: true } }),
-      });
+      resolveLogin({ ok: true, status: 200, json: () => Promise.resolve({ access_token: "jwt" }) });
     });
   });
 });

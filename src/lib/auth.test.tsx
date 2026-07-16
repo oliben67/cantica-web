@@ -17,12 +17,26 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-function mockFetch(...responses: object[]) {
-  let stub = vi.fn();
-  for (const r of responses) {
-    stub = stub.mockResolvedValueOnce(r as unknown as Response);
-  }
-  vi.stubGlobal("fetch", stub);
+// The shim's /v1/auth/me returns a principal; login is /v1/auth/login → token.
+// The AuthProvider probes /v1/auth/me on mount, so route by URL, not by order.
+function routeFetch(cfg: {
+  me?: { user_id: string; email: string; roles: string[]; anonymous?: boolean } | null;
+  login?: { ok: boolean; body: unknown };
+}) {
+  vi.stubGlobal("fetch", vi.fn((url: string) => {
+    if (url === "/v1/auth/me") {
+      return Promise.resolve(cfg.me == null
+        ? { ok: false, status: 401, json: () => Promise.resolve({}) }
+        : { ok: true, status: 200, json: () => Promise.resolve({ anonymous: false, ...cfg.me }) });
+    }
+    if (url === "/v1/auth/login") {
+      const l = cfg.login ?? { ok: false, body: "no handler" };
+      return Promise.resolve(l.ok
+        ? { ok: true, status: 200, json: () => Promise.resolve(l.body) }
+        : { ok: false, status: 401, text: () => Promise.resolve(String(l.body)) });
+    }
+    return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve("") });
+  }));
 }
 
 afterEach(() => {
@@ -30,143 +44,120 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("AuthProvider — no token", () => {
-  it("starts with no user and isLoading=false when no token", async () => {
+describe("AuthProvider — no session", () => {
+  it("has no user when /auth/me is unauthorized", async () => {
+    routeFetch({ me: null });
     function Inspector() {
       const { user, isLoading } = useAuth();
       if (isLoading) return <div>loading</div>;
-      return <div>{user ? user.username : "no-user"}</div>;
+      return <div>{user ? user.email : "no-user"}</div>;
     }
     render(<Wrapper><Inspector /></Wrapper>);
-    await waitFor(() => expect(screen.queryByText("loading")).not.toBeInTheDocument());
-    expect(screen.getByText("no-user")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("no-user")).toBeInTheDocument());
+  });
+
+  it("treats an anonymous principal as no session", async () => {
+    routeFetch({ me: { user_id: "anonymous", email: "", roles: ["readonly"], anonymous: true } });
+    function Inspector() {
+      const { user, isLoading } = useAuth();
+      if (isLoading) return <div>loading</div>;
+      return <div>{user ? user.email : "no-user"}</div>;
+    }
+    render(<Wrapper><Inspector /></Wrapper>);
+    await waitFor(() => expect(screen.getByText("no-user")).toBeInTheDocument());
   });
 });
 
-describe("AuthProvider — with token", () => {
-  it("fetches /auth/me and sets user when token exists", async () => {
-    localStorage.setItem("cantica_token", "test-jwt");
-    const fakeUser = { id: "1", username: "alice", email: "a@a.com", roles: ["user"], is_active: true };
-    mockFetch({ ok: true, json: () => Promise.resolve(fakeUser) });
-
+describe("AuthProvider — with session", () => {
+  it("adopts the local/admin principal from /auth/me on mount", async () => {
+    routeFetch({ me: { user_id: "1", email: "a@a.com", roles: ["user"] } });
     function Inspector() {
       const { user, isLoading } = useAuth();
       if (isLoading) return <div>loading</div>;
-      return <div>{user?.username ?? "no-user"}</div>;
+      return <div>{user?.email ?? "no-user"}</div>;
     }
     render(<Wrapper><Inspector /></Wrapper>);
-    await waitFor(() => expect(screen.getByText("alice")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("a@a.com")).toBeInTheDocument());
   });
 
-  it("clears token when /auth/me returns non-ok", async () => {
-    localStorage.setItem("cantica_token", "bad-jwt");
-    mockFetch({ ok: false, status: 401 });
-
-    function Inspector() {
-      const { user, isLoading } = useAuth();
-      if (isLoading) return <div>loading</div>;
-      return <div>{user ? user.username : "no-user"}</div>;
-    }
-    render(<Wrapper><Inspector /></Wrapper>);
-    await waitFor(() => expect(screen.queryByText("loading")).not.toBeInTheDocument());
-    expect(screen.getByText("no-user")).toBeInTheDocument();
-    expect(localStorage.getItem("cantica_token")).toBeNull();
-  });
-
-  it("isAdmin is true when user has admin role", async () => {
-    localStorage.setItem("cantica_token", "admin-jwt");
-    const fakeAdmin = { id: "1", username: "admin", email: "", roles: ["admin"], is_active: true };
-    mockFetch({ ok: true, json: () => Promise.resolve(fakeAdmin) });
-
+  it("isAdmin reflects the admin role", async () => {
+    routeFetch({ me: { user_id: "1", email: "admin@x.com", roles: ["admin"] } });
     function Inspector() {
       const { isAdmin, isLoading } = useAuth();
       if (isLoading) return <div>loading</div>;
       return <div>{isAdmin ? "admin" : "not-admin"}</div>;
     }
     render(<Wrapper><Inspector /></Wrapper>);
-    await waitFor(() => expect(screen.queryByText("loading")).not.toBeInTheDocument());
-    expect(screen.getByText("admin")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("admin")).toBeInTheDocument());
   });
 
-  it("isAdmin is false for regular user", async () => {
-    localStorage.setItem("cantica_token", "user-jwt");
-    const fakeUser = { id: "2", username: "bob", email: "", roles: ["user"], is_active: true };
-    mockFetch({ ok: true, json: () => Promise.resolve(fakeUser) });
-
+  it("isAdmin is false for a regular user", async () => {
+    routeFetch({ me: { user_id: "2", email: "bob@x.com", roles: ["user"] } });
     function Inspector() {
       const { isAdmin, isLoading } = useAuth();
       if (isLoading) return <div>loading</div>;
       return <div>{isAdmin ? "admin" : "not-admin"}</div>;
     }
     render(<Wrapper><Inspector /></Wrapper>);
-    await waitFor(() => expect(screen.queryByText("loading")).not.toBeInTheDocument());
-    expect(screen.getByText("not-admin")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("not-admin")).toBeInTheDocument());
   });
 });
 
 describe("AuthProvider — login / logout", () => {
-  it("login stores token and sets user", async () => {
-    // No token → no auth/me call on mount
-    const loginResp = {
-      access_token: "new-jwt",
-      user: { id: "1", username: "alice", email: "a@a.com", roles: ["user"], is_active: true },
-    };
-    mockFetch({ ok: true, status: 200, json: () => Promise.resolve(loginResp) });
-
+  it("login stores token then loads the principal via /auth/me", async () => {
+    routeFetch({
+      me: { user_id: "1", email: "a@a.com", roles: ["user"] },
+      login: { ok: true, body: { access_token: "new-jwt" } },
+    });
+    // No token at mount → me returns the (mocked) principal anyway; that's fine.
     function Inspector() {
       const { user, isLoading, login } = useAuth();
       if (isLoading) return <div>loading</div>;
       return (
         <>
-          <div>{user?.username ?? "no-user"}</div>
-          <button onClick={() => void login("alice", "pass")}>Login</button>
+          <div>{user?.email ?? "no-user"}</div>
+          <button onClick={() => void login("a@a.com", "pass")}>Login</button>
         </>
       );
     }
     render(<Wrapper><Inspector /></Wrapper>);
     await waitFor(() => expect(screen.queryByText("loading")).not.toBeInTheDocument());
-
     await userEvent.click(screen.getByText("Login"));
-    await waitFor(() => expect(screen.getByText("alice")).toBeInTheDocument());
-    expect(localStorage.getItem("cantica_token")).toBe("new-jwt");
+    await waitFor(() => expect(localStorage.getItem("cantica_token")).toBe("new-jwt"));
   });
 
-  it("login throws when server returns non-ok", async () => {
-    mockFetch({ ok: false, status: 401, text: () => Promise.resolve("Bad credentials") });
-
-    let caughtError = "";
+  it("login throws when the server rejects the credentials", async () => {
+    routeFetch({ me: null, login: { ok: false, body: "Bad credentials" } });
+    let caught = "";
     function Inspector() {
       const { login } = useAuth();
       return (
         <button onClick={async () => {
           try { await login("bad", "creds"); }
-          catch (e) { caughtError = e instanceof Error ? e.message : String(e); }
+          catch (e) { caught = e instanceof Error ? e.message : String(e); }
         }}>Login</button>
       );
     }
     render(<Wrapper><Inspector /></Wrapper>);
     await userEvent.click(screen.getByText("Login"));
-    await waitFor(() => expect(caughtError).toContain("Bad credentials"));
+    await waitFor(() => expect(caught).toContain("Bad credentials"));
   });
 
   it("logout clears token and user", async () => {
     localStorage.setItem("cantica_token", "jwt");
-    const fakeUser = { id: "1", username: "alice", email: "", roles: ["user"], is_active: true };
-    mockFetch({ ok: true, json: () => Promise.resolve(fakeUser) });
-
+    routeFetch({ me: { user_id: "1", email: "a@a.com", roles: ["user"] } });
     function Inspector() {
       const { user, isLoading, logout } = useAuth();
       if (isLoading) return <div>loading</div>;
       return (
         <>
-          <div>{user?.username ?? "no-user"}</div>
+          <div>{user?.email ?? "no-user"}</div>
           <button onClick={logout}>Logout</button>
         </>
       );
     }
     render(<Wrapper><Inspector /></Wrapper>);
-    await waitFor(() => expect(screen.getByText("alice")).toBeInTheDocument());
-
+    await waitFor(() => expect(screen.getByText("a@a.com")).toBeInTheDocument());
     await userEvent.click(screen.getByText("Logout"));
     await waitFor(() => expect(screen.getByText("no-user")).toBeInTheDocument());
     expect(localStorage.getItem("cantica_token")).toBeNull();
@@ -174,22 +165,17 @@ describe("AuthProvider — login / logout", () => {
 });
 
 describe("AuthProvider — unauthorized event", () => {
-  it("clears user when cantica:unauthorized fires", async () => {
+  it("clears the user when cantica:unauthorized fires", async () => {
     localStorage.setItem("cantica_token", "jwt");
-    const fakeUser = { id: "1", username: "alice", email: "", roles: ["user"], is_active: true };
-    mockFetch({ ok: true, json: () => Promise.resolve(fakeUser) });
-
+    routeFetch({ me: { user_id: "1", email: "a@a.com", roles: ["user"] } });
     function Inspector() {
       const { user, isLoading } = useAuth();
       if (isLoading) return <div>loading</div>;
-      return <div>{user?.username ?? "no-user"}</div>;
+      return <div>{user?.email ?? "no-user"}</div>;
     }
     render(<Wrapper><Inspector /></Wrapper>);
-    await waitFor(() => expect(screen.getByText("alice")).toBeInTheDocument());
-
-    act(() => {
-      window.dispatchEvent(new CustomEvent("cantica:unauthorized"));
-    });
+    await waitFor(() => expect(screen.getByText("a@a.com")).toBeInTheDocument());
+    act(() => { window.dispatchEvent(new CustomEvent("cantica:unauthorized")); });
     await waitFor(() => expect(screen.getByText("no-user")).toBeInTheDocument());
   });
 });

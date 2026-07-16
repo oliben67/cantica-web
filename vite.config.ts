@@ -6,8 +6,14 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
+    // Ensure a single React instance — @cantica/secure-ui is consumed from
+    // source and brings its own react devDependency, which breaks hooks in
+    // vitest without deduping.
+    dedupe: ["react", "react-dom"],
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      react: path.resolve(__dirname, "./node_modules/react"),
+      "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
       // Consume the shared security UI straight from the sibling submodule's
       // source (Phase E) — no build/publish step needed for local dev/build.
       "@cantica/secure-ui/styles.css": path.resolve(__dirname, "../cantica-secure/ui/src/styles.css"),
