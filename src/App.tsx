@@ -12,6 +12,7 @@ import { InvitePage } from "@/pages/InvitePage";
 import { LoginPage } from "@/pages/LoginPage";
 import { NamespacePage } from "@/pages/NamespacePage";
 import { PromptDetail } from "@/pages/PromptDetail";
+import { SecurityAdminPage } from "@/pages/SecurityAdminPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000 } },
@@ -31,6 +32,7 @@ function AuthenticatedLayout() {
         <Route path="/collections/:namespace/:name" element={<CollectionDetail />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/federation" element={<FederationPage />} />
+        <Route path="/admin/security" element={<SecurityAdminPage />} />
         <Route path="/:namespace" element={<NamespacePage />} />
       </Routes>
     </div>

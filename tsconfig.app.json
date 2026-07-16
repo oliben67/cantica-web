@@ -23,7 +23,8 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@cantica/secure-ui": ["../cantica-secure/ui/src/index.ts"]
     }
   },
   "include": ["src"]

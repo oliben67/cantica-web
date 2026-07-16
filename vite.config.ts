@@ -8,6 +8,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Consume the shared security UI straight from the sibling submodule's
+      // source (Phase E) — no build/publish step needed for local dev/build.
+      "@cantica/secure-ui/styles.css": path.resolve(__dirname, "../cantica-secure/ui/src/styles.css"),
+      "@cantica/secure-ui": path.resolve(__dirname, "../cantica-secure/ui/src/index.ts"),
     },
   },
   test: {

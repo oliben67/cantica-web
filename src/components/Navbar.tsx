@@ -47,6 +47,10 @@ export function Navbar() {
                 <Network size={14} />
                 Federation
               </Link>
+              <Link to="/admin/security" className="flex items-center gap-1 text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300">
+                <ShieldCheck size={14} />
+                Security
+              </Link>
             </>
           )}
 
